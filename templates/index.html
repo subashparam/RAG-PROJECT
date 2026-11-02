@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wonderland RAG Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .chat-container { height: calc(100vh - 200px); }
+        .message-user { background-color: #3b82f6; color: white; border-radius: 1rem 1rem 0 1rem; }
+        .message-ai { background-color: #f3f4f6; color: #1f2937; border-radius: 1rem 1rem 1rem 0; }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans h-screen flex flex-col">
+
+    <!-- Top Header Bar -->
+    <header class="bg-white border-b border-gray-200 py-4 px-6 shadow-sm flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <span class="text-2xl">✨</span>
+            <h1 class="text-xl font-bold text-gray-800">Wonderland Knowledge Dashboard</h1>
+        </div>
+        <div class="flex items-center space-x-2">
+            <span class="h-3 w-3 bg-green-500 rounded-full animate-pulse"></span>
+            <span class="text-sm font-medium text-gray-500">Connected to MongoDB Atlas</span>
+        </div>
+    </header>
+
+    <!-- Main Live Chat Window Wrapper -->
+    <main class="flex-1 max-w-4xl w-full mx-auto p-4 flex flex-col justify-between">
+        <!-- Scrolling Message Panel Container -->
+        <div id="chat-box" class="chat-container overflow-y-auto space-y-4 p-4 bg-white border border-gray-200 rounded-xl shadow-inner">
+            <div class="flex justify-start">
+                <div class="message-ai p-4 max-w-xl text-sm shadow-sm">
+                    Hello! I have fully indexed Alice's Adventures in Wonderland with context memory. Ask me anything about the book!
+                </div>
+            </div>
+        </div>
+
+        <!-- Sticky Bottom Chat Input Bar -->
+        <div class="mt-4 bg-white p-3 border border-gray-200 rounded-xl shadow-md flex items-center space-x-3">
+            <input type="text" id="user-input" placeholder="Ask about the Cheshire Cat, the Queen, or the trial..." 
+                   class="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-sm">
+            <button id="send-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg shadow transition focus:outline-none text-sm">
+                Send Message
+            </button>
+        </div>
+    </main>
+
+    <!-- Frontend Communications Logic Block -->
+    <script>
+        const chatBox = document.getElementById('chat-box');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+
+        function appendMessage(sender, text) {
+            const wrapper = document.createElement('div');
+            wrapper.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'}`;
+            
+            const bubble = document.createElement('div');
+            bubble.className = `${sender === 'user' ? 'message-user' : 'message-ai'} p-4 max-w-xl text-sm shadow-sm whitespace-pre-line`;
+            bubble.textContent = text;
+            
+            wrapper.appendChild(bubble);
+            chatBox.appendChild(wrapper);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        async function handleSendMessage() {
+            const query = userInput.value.trim();
+            if (!query) return;
+
+            appendMessage('user', query);
+            userInput.value = '';
+
+            // Render a temporary typing loader dot string
+            const loadingWrapper = document.createElement('div');
+            loadingWrapper.className = 'flex justify-start';
+            loadingWrapper.innerHTML = `<div class="message-ai p-4 text-sm shadow-sm italic text-gray-400">Searching MongoDB & generating answer...</div>`;
+            chatBox.appendChild(loadingWrapper);
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: query })
+                });
+                const data = await response.json();
+                
+                chatBox.removeChild(loadingWrapper);
+                appendMessage('ai', data.answer);
+            } catch (error) {
+                chatBox.removeChild(loadingWrapper);
+                appendMessage('ai', "⚠️ Connection failure. Is your backend FastAPI server running?");
+            }
+        }
+
+        sendBtn.addEventListener('click', handleSendMessage);
+        userInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleSendMessage(); });
+    </script>
+</body>
+</html>
